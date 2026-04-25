@@ -11,6 +11,7 @@ from .llm.gemini import GeminiTranslation
 from .llm.deepseek import DeepseekTranslation
 from .llm.custom import CustomTranslation
 from .user import UserTranslator
+from .local_google import LocalGoogleTranslation
 from app.account.auth.token_storage import get_token
 
 
@@ -23,7 +24,8 @@ class TranslationFactory:
     TRADITIONAL_ENGINES = {
         "Microsoft Translator": MicrosoftTranslation,
         "DeepL": DeepLTranslation,
-        "Yandex": YandexTranslation
+        "Yandex": YandexTranslation,
+        "Local Google Translate": LocalGoogleTranslation
     }
     
     # Map LLM identifiers to their engine classes
@@ -78,7 +80,7 @@ class TranslationFactory:
         """Get the appropriate engine class based on translator key."""
 
         access_token = get_token("access_token")
-        if access_token and translator_key not in ['Custom']:
+        if access_token and translator_key not in ['Custom', 'Local Google Translate']:
             return UserTranslator
 
         # First check if it's a traditional translation engine (exact match)

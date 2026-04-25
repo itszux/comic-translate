@@ -1,4 +1,4 @@
-﻿import os
+import os
 from PySide6 import QtWidgets
 from PySide6 import QtCore
 
@@ -76,6 +76,7 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Claude-4.5-Haiku"),
             self.tr("Deepseek-v3"),
             self.tr("Custom"),
+            self.tr("Local Google Translate"),
         ]
         
         self.languages = [
@@ -121,6 +122,7 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Gemini-2.5-Pro"): "Gemini-2.5-Pro",
             self.tr("Yandex"): "Yandex",
             self.tr("Microsoft Translator"): "Microsoft Translator",
+            self.tr("Local Google Translate"): "Local Google Translate",
 
             # OCR mappings
             self.tr("Default"): "Default",
