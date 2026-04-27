@@ -110,6 +110,7 @@ class ManualWorkflowController:
     ) -> None:
         if not self.main.webtoon_mode:
             self.main.blk_list = [blk.deep_copy() if hasattr(blk, "deep_copy") else blk for blk in blk_list]
+            self.main.blk_list_updated.emit()
             return
 
         if current_page_unloaded:
@@ -117,6 +118,7 @@ class ManualWorkflowController:
             return
 
         self.main.blk_list = self._copy_blocks_for_current_webtoon_page(blk_list)
+        self.main.blk_list_updated.emit()
 
     def _serialize_rectangles_from_blocks(self, blk_list: list[TextBlock]) -> list[dict]:
         rects: list[dict] = []
@@ -191,6 +193,7 @@ class ManualWorkflowController:
                         )
                     elif load_rects:
                         self.main.blk_list = [blk.deep_copy() if hasattr(blk, "deep_copy") else blk for blk in current_blocks]
+                        self.main.blk_list_updated.emit()
                         self.main.pipeline.load_box_coords(self.main.blk_list)
 
                 if results:
@@ -230,6 +233,7 @@ class ManualWorkflowController:
                 rect = self.main.rect_item_ctrl.find_corresponding_rect(first_block, 0.5)
             self.main.image_viewer.select_rectangle(rect)
         self.main.set_tool("box")
+        self.main.blk_list_updated.emit()
         self.main.on_manual_finished()
 
     def ocr(self, single_block: bool = False) -> None:
@@ -491,6 +495,7 @@ class ManualWorkflowController:
                     *wrap_args,
                 )
 
+            self.main.blk_list_updated.emit()
             self.main.run_finish_only(finished_callback=self.main.on_manual_finished)
 
         self.main.run_threaded(
@@ -605,6 +610,7 @@ class ManualWorkflowController:
         else:
             blk_list, load_rects = result
         self.main.blk_list = blk_list
+        self.main.blk_list_updated.emit()
         self.main.undo_group.activeStack().beginMacro("draw_segmentation_boxes")
         for blk in self.main.blk_list:
             bboxes = blk.inpaint_bboxes

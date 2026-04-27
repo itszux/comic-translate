@@ -50,6 +50,7 @@ class ComicTranslate(ComicTranslateUI):
     blk_rendered = QtCore.Signal(str, int, object, str)
     render_state_ready = QtCore.Signal(str)
     download_event = QtCore.Signal(str, str)  # status, name
+    blk_list_updated = QtCore.Signal()
 
     def __init__(self, parent=None):
         super(ComicTranslate, self).__init__(parent)
@@ -135,6 +136,7 @@ class ComicTranslate(ComicTranslateUI):
         self.render_state_ready.connect(self.image_ctrl.on_render_state_ready)
         self.render_state_ready.connect(self.project_ctrl._on_batch_page_done)
         self.download_event.connect(self.on_download_event)
+        self.blk_list_updated.connect(self.refresh_text_block_list)
 
         self.connect_ui_elements()
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
@@ -254,6 +256,11 @@ class ComicTranslate(ComicTranslateUI):
         # New project and safety confirmations
         self.new_project_button.clicked.connect(self._on_new_project_clicked)
 
+        # Text block list connection
+        self.text_block_list.itemClicked.connect(self.on_text_block_list_item_clicked)
+        self.text_block_list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.text_block_list.customContextMenuRequested.connect(self.show_text_block_context_menu)
+
         # Home screen signals
         self.startup_home.sig_open_files.connect(self._guarded_thread_load_images)
         self.startup_home.sig_open_project.connect(self._open_project_from_home)
@@ -325,6 +332,86 @@ class ComicTranslate(ComicTranslateUI):
                 selected_paths.append(path)
                 seen.add(path)
         return selected_paths
+
+    def refresh_text_block_list(self):
+        self.text_block_list.clear()
+        for i, blk in enumerate(self.blk_list):
+            item = QtWidgets.QListWidgetItem()
+            item.setData(QtCore.Qt.ItemDataRole.UserRole, id(blk))
+            self.text_block_list.addItem(item)
+            
+            widget = QtWidgets.QWidget()
+            widget.setStyleSheet("background-color: transparent;")
+            layout = QtWidgets.QHBoxLayout(widget)
+            layout.setContentsMargins(5, 2, 5, 2)
+            layout.setSpacing(5)
+            
+            ocr_color = "#4CAF50" if blk.text else "#424242"
+            ocr_ind = QtWidgets.QLabel("O")
+            ocr_ind.setStyleSheet(f"color: white; background-color: {ocr_color}; border-radius: 3px; padding: 1px 3px; font-weight: bold; font-size: 10px;")
+            layout.addWidget(ocr_ind)
+            
+            tr_color = "#2196F3" if blk.translation else "#424242"
+            tr_ind = QtWidgets.QLabel("T")
+            tr_ind.setStyleSheet(f"color: white; background-color: {tr_color}; border-radius: 3px; padding: 1px 3px; font-weight: bold; font-size: 10px;")
+            layout.addWidget(tr_ind)
+            
+            display_text = ""
+            if blk.text and not blk.translation:
+                display_text = blk.text
+            elif blk.translation:
+                display_text = blk.translation
+                
+            display_text = display_text.replace("\n", " ").strip()
+            
+            if display_text:
+                if len(display_text) > 30:
+                    display_text = display_text[:27] + "..."
+                text_label = QtWidgets.QLabel(display_text)
+                text_label.setStyleSheet("color: palette(text);")
+                text_label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+                layout.addWidget(text_label)
+            else:
+                spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+                layout.addSpacerItem(spacer)
+            
+            widget.setLayout(layout)
+            item.setSizeHint(QtCore.QSize(10, 28))
+            self.text_block_list.setItemWidget(item, widget)
+
+    def show_text_block_context_menu(self, pos):
+        item = self.text_block_list.itemAt(pos)
+        if not item:
+            return
+            
+        self.text_block_list.setCurrentItem(item)
+        self.on_text_block_list_item_clicked(item)
+        
+        menu = QtWidgets.QMenu(self)
+        ocr_action = menu.addAction("OCR")
+        translate_action = menu.addAction("Translate")
+        
+        action = menu.exec(self.text_block_list.mapToGlobal(pos))
+        if action == ocr_action:
+            self.manual_workflow_ctrl.ocr(single_block=True)
+        elif action == translate_action:
+            self.manual_workflow_ctrl.translate_image(single_block=True)
+
+    def on_text_block_list_item_clicked(self, item):
+        blk_id = item.data(QtCore.Qt.ItemDataRole.UserRole)
+        for blk in self.blk_list:
+            if id(blk) == blk_id:
+                # Find rect item
+                rect_item = self.rect_item_ctrl.find_corresponding_rect(blk, 0.5)
+                if rect_item:
+                    self.image_viewer.select_rectangle(rect_item)
+                # Find text item and focus if exists
+                for text_item in self.image_viewer.text_items:
+                    if self.text_ctrl._find_text_block_for_item(text_item) is blk:
+                        text_item.setSelected(True)
+                        text_item.item_selected.emit(text_item)
+                        break
+                break
 
     def restore_text_blocks(self):
         if not self.webtoon_mode:

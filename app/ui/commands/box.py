@@ -13,6 +13,7 @@ class AddRectangleCommand(QUndoCommand, RectCommandBase):
         super().__init__()
         self.viewer = main_page.image_viewer
         self.scene = self.viewer._scene
+        self.main = main_page
         self.blk_list = blk_list
         self.rect_properties = self.save_rect_properties(rect_item)
         self.blk_properties = self.save_blk_properties(blk)
@@ -24,6 +25,7 @@ class AddRectangleCommand(QUndoCommand, RectCommandBase):
         if not self.find_matching_blk(self.blk_list, self.blk_properties):
             blk = self.create_new_blk(self.blk_properties)
             self.blk_list.append(blk)
+        self.main.blk_list_updated.emit()
 
     def undo(self):
         matching_item = self.find_matching_rect(self.scene, self.rect_properties)
@@ -35,6 +37,7 @@ class AddRectangleCommand(QUndoCommand, RectCommandBase):
 
         if matching_blk:
             self.blk_list.remove(matching_blk)
+        self.main.blk_list_updated.emit()
 
 class BoxesChangeCommand(QUndoCommand, RectCommandBase):
     def __init__(self, viewer, old_state, new_state, blk_list):
@@ -207,6 +210,7 @@ class DeleteBoxesCommand(QUndoCommand, RectCommandBase):
             self.viewer.text_items.remove(matching_txt_item)
             self.ct.curr_tblock_item = None
             self.scene.update()
+        self.ct.blk_list_updated.emit()
 
     def undo(self):
         if self.rect_properties and not self.find_matching_rect(self.scene, self.rect_properties):
@@ -219,6 +223,7 @@ class DeleteBoxesCommand(QUndoCommand, RectCommandBase):
 
         if self.txt_item_prp and not self.find_matching_txt_item(self.scene, self.txt_item_prp):
             text_item = self.create_new_txt_item(self.txt_item_prp, self.viewer)
+        self.ct.blk_list_updated.emit()
 
 class AddTextItemCommand(QUndoCommand, RectCommandBase):
     def __init__(self, main_page, text_item):
@@ -303,6 +308,7 @@ class ReplaceDetectedBlocksCommand(QUndoCommand):
         self.main.curr_tblock_item = None
         self.main.image_viewer.selected_rect = None
         self._refresh_rectangles()
+        self.main.blk_list_updated.emit()
 
     def redo(self):
         self._apply(self._new_blocks)

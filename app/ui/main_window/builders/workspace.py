@@ -102,10 +102,25 @@ class WorkspaceMixin:
         self.image_card_layout.addStretch(1)
 
         self.page_list.setLayout(self.image_card_layout)
-        left_layout.addWidget(self.page_list)
+        
+        self.text_block_list = QtWidgets.QListWidget()
+        self.text_block_list.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
+        self.text_block_list.setMinimumWidth(0)
+        self.text_block_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.text_block_list.setWordWrap(False)
+        self.text_block_list.setAlternatingRowColors(True)
+        
+        left_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        left_splitter.addWidget(self.page_list)
+        left_splitter.addWidget(self.text_block_list)
+        left_splitter.setStretchFactor(0, 70)
+        left_splitter.setStretchFactor(1, 30)
+
+        left_layout.addWidget(left_splitter)
         left_layout.addWidget(self.search_panel)
         left_widget = QtWidgets.QWidget()
         left_widget.setLayout(left_layout)
+        left_widget.setMinimumWidth(0)
 
         self.central_stack = QtWidgets.QStackedWidget()
 
@@ -385,6 +400,7 @@ class WorkspaceMixin:
         splitter.setStretchFactor(0, 40)
         splitter.setStretchFactor(1, 80)
         splitter.setStretchFactor(2, 10)
+        splitter.setSizes([250, 800, 250])
 
         content_layout = QtWidgets.QVBoxLayout()
         content_layout.addLayout(header_layout)

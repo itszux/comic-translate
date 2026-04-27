@@ -293,6 +293,7 @@ class ImageStateController:
         self.main.image_history.clear()
         self.main.current_history_index.clear()
         self.main.blk_list = []
+        self.main.blk_list_updated.emit()
         self.main.displayed_images.clear()
         self.main.image_viewer.clear_rectangles(page_switch=True)
         self.main.image_viewer.clear_brush_strokes(page_switch=True)
@@ -1055,6 +1056,7 @@ class ImageStateController:
                     push_to_stack = state.get('viewer_state', {}).get('push_to_stack', False)
 
                     self.main.blk_list = state['blk_list'].copy()  # Load a copy of the list, not a reference
+                    self.main.blk_list_updated.emit()
                     viewer.load_state(state['viewer_state'])
                     # Block signals to prevent triggering save when loading state
                     self.main.s_combo.blockSignals(True)
@@ -1079,6 +1081,7 @@ class ImageStateController:
                 else:
                     # New image - just set language preferences and clear everything else
                     self.main.blk_list = []
+                    self.main.blk_list_updated.emit()
                     # Block signals to prevent triggering save when loading state
                     self.main.s_combo.blockSignals(True)
                     self.main.t_combo.blockSignals(True)
@@ -1092,6 +1095,7 @@ class ImageStateController:
                     needs_default_fit = True
             else:
                 self.main.blk_list = []
+                self.main.blk_list_updated.emit()
                 viewer.clear_rectangles(page_switch=True)
                 viewer.clear_brush_strokes(page_switch=True)
                 viewer.clear_text_items()
@@ -1199,6 +1203,7 @@ class ImageStateController:
             # corresponding TextBlock (with OCR text) for s_text_edit.
             stored_blk_list = self.main.image_states.get(file_path, {}).get('blk_list', [])
             self.main.blk_list = stored_blk_list.copy() if stored_blk_list else []
+            self.main.blk_list_updated.emit()
 
             for data in viewer_state.get('text_items_state', []):
                 viewer.add_text_item(data)

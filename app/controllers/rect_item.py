@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from typing import TYPE_CHECKING
+from PySide6 import QtCore
 from PySide6.QtCore import QRectF, QPointF
 
 from app.ui.canvas.rectangle import MoveableRectItem
@@ -49,8 +50,8 @@ class RectItemController:
         rect_item._ct_signals_connected = True
 
     def handle_rectangle_selection(self, rect: QRectF):
-        rect = rect.getCoords()
-        self.main.curr_tblock = self.find_corresponding_text_block(rect, 0.5)
+        rect_coords = rect.getCoords()
+        self.main.curr_tblock = self.find_corresponding_text_block(rect_coords, 0.5)
         if self.main.curr_tblock:
             self.main.s_text_edit.blockSignals(True)
             self.main.t_text_edit.blockSignals(True)
@@ -58,10 +59,31 @@ class RectItemController:
             self.main.t_text_edit.setPlainText(self.main.curr_tblock.translation)
             self.main.s_text_edit.blockSignals(False)
             self.main.t_text_edit.blockSignals(False)
-        else:
+        
+        if rect_coords == (0.0, 0.0, 0.0, 0.0):
             self.main.s_text_edit.clear()
             self.main.t_text_edit.clear()
+            self.main.text_block_list.clearSelection()
             self.main.curr_tblock = None
+            self.main.curr_tblock_item = None
+            return
+
+        current_text_block = self.find_corresponding_text_block(rect_coords, 0.5)
+        
+        # Select in list widget
+        if current_text_block:
+            blk_id = id(current_text_block)
+            for i in range(self.main.text_block_list.count()):
+                item = self.main.text_block_list.item(i)
+                if item.data(QtCore.Qt.ItemDataRole.UserRole) == blk_id:
+                    self.main.text_block_list.blockSignals(True)
+                    self.main.text_block_list.setCurrentItem(item)
+                    self.main.text_block_list.blockSignals(False)
+                    break
+        else:
+            self.main.text_block_list.clearSelection()
+
+        self.main.curr_tblock = current_text_block
 
     def handle_rectangle_creation(self, rect_item: MoveableRectItem):
         self.connect_rect_item_signals(rect_item)
@@ -74,11 +96,13 @@ class RectItemController:
         self.main.blk_list.append(new_blk)
         command = AddRectangleCommand(self.main, rect_item, new_blk, self.main.blk_list)
         self.main.undo_group.activeStack().push(command)
+        self.main.blk_list_updated.emit()
 
     def handle_rectangle_deletion(self, rect: QRectF):
         rect_coords = rect.getCoords()
         current_text_block = self.find_corresponding_text_block(rect_coords, 0.5)
         self.main.blk_list.remove(current_text_block)
+        self.main.blk_list_updated.emit()
 
     def handle_rectangle_change(
             self, 
@@ -109,6 +133,7 @@ class RectItemController:
             new_state.rotation,
             new_state.transform_origin
         )
+        self.main.blk_list_updated.emit()
 
 
     def find_corresponding_text_block(self, rect: tuple[float], iou_threshold: int = 0.5):

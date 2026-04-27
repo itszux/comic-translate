@@ -51,7 +51,11 @@ class OCRProcessor:
 
         self._set_source_language(blk_list)
         engine = OCRFactory.create_engine(self.settings, self.source_lang_english, self.ocr_key)
-        return engine.process_image(img, blk_list)
+        processed_blocks = engine.process_image(img, blk_list)
+        for blk in processed_blocks:
+            if blk.text:
+                blk.text = blk.text.replace('．', '.')
+        return processed_blocks
             
     def _set_source_language(self, blk_list: list[TextBlock]) -> None:
         source_lang_code = language_codes.get(self.source_lang_english, 'en')

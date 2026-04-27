@@ -186,3 +186,5 @@ class BlockDetectionHandler:
             # For visible area detection, we pass the detected blocks only for rectangle loading
             blocks_to_load = blk_list
             self.load_box_coords(blocks_to_load)
+        
+        self.main_page.blk_list_updated.emit()

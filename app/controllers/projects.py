@@ -1317,6 +1317,9 @@ class ProjectController:
             self.main.webtoon_ctrl.switch_to_webtoon_mode()
             QtCore.QTimer.singleShot(0, self.main.image_viewer.webtoon_manager.restore_view_state)
             QtCore.QTimer.singleShot(150, self.main.image_viewer.webtoon_manager.restore_view_state)
+            QtCore.QTimer.singleShot(200, self.main.blk_list_updated.emit)
+        else:
+            self.main.blk_list_updated.emit()
         self.main.set_project_clean()
 
     def _refresh_home_screen(self) -> None:

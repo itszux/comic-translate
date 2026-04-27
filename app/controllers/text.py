@@ -235,6 +235,7 @@ class TextController:
             self.main.curr_tblock.text = self.main.s_text_edit.toPlainText()
             self.main.curr_tblock.translation = self.main.t_text_edit.toPlainText()
             self.main.mark_project_dirty()
+            self.main.blk_list_updated.emit()
 
     def update_text_block_from_edit(self):
         self._is_updating_from_edit = True
@@ -259,6 +260,7 @@ class TextController:
                 old_item_text is None or old_item_text == new_text
             ):
                 return
+            self.main.blk_list_updated.emit()
         finally:
             self._is_updating_from_edit = False
 
@@ -276,6 +278,7 @@ class TextController:
             self.main.t_text_edit.blockSignals(False)
 
         self._schedule_text_change_command(text_item, new_text, blk)
+        self.main.blk_list_updated.emit()
 
     def _apply_text_item_text_delta(self, text_item: TextBlockItem, new_text: str):
         old_text = text_item.toPlainText()

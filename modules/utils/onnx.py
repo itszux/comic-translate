@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+import os
 import onnxruntime as ort
-
+os.environ['ORT_LOGGING_LEVEL'] = '4'
+ort.set_default_logger_severity(4)
 
 def make_session_options(
     *, 
@@ -32,6 +34,10 @@ def make_session_options(
     return so
 
 
+import sys
+import os
+from contextlib import redirect_stdout
+
 def make_session(
     model_path: str,
     *,
@@ -40,4 +46,6 @@ def make_session(
 ) -> Any:
     """Create an ONNXRuntime InferenceSession honoring CT_ORT_* toggles."""
     so = sess_options if sess_options is not None else make_session_options()
-    return ort.InferenceSession(model_path, sess_options=so, providers=providers)
+    with open(os.devnull, 'w') as f:
+        with redirect_stdout(f):
+            return ort.InferenceSession(model_path, sess_options=so, providers=providers)

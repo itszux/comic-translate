@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from typing import Any, Mapping, Optional
 import onnxruntime as ort
+os.environ['ORT_LOGGING_LEVEL'] = '4'
+ort.set_default_logger_severity(4)
 from .paths import get_user_data_dir
 
 
