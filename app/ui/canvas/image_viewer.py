@@ -25,6 +25,7 @@ class ImageViewer(QGraphicsView):
     connect_text_item =  Signal(TextBlockItem)
     page_changed = Signal(int)
     clear_text_edits = Signal()
+    delete_requested = Signal()
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -199,6 +200,13 @@ class ImageViewer(QGraphicsView):
 
     def viewportEvent(self, event):
         return self.event_handler.handle_viewport_event(event)
+        
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
+            self.delete_requested.emit()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def set_br_er_size(self, size, scaled_size):
         if self.current_tool == 'brush':

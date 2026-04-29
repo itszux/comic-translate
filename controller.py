@@ -223,6 +223,7 @@ class ComicTranslate(ComicTranslateUI):
         self.image_viewer.connect_text_item.connect(self.text_ctrl.connect_text_item_signals)
         self.image_viewer.page_changed.connect(self.webtoon_ctrl.on_page_changed)
         self.image_viewer.clear_text_edits.connect(self.text_ctrl.clear_text_edits)
+        self.image_viewer.delete_requested.connect(self.delete_selected_box)
 
         try:
             if self._memlogger is not None:

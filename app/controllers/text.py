@@ -96,6 +96,7 @@ class TextController:
         self.main.curr_tblock_item = None
         self.main.s_text_edit.clear()
         self.main.t_text_edit.clear()
+        self.main.text_block_list.clearSelection()
 
     def on_blk_rendered(self, text: str, font_size: int, blk: TextBlock, image_path: str):
         if not self.main.webtoon_mode:
@@ -176,11 +177,22 @@ class TextController:
             None
         )
 
-        # Update both s_text_edit and t_text_edit
+        # Select in list widget
         if self.main.curr_tblock:
+            blk_id = id(self.main.curr_tblock)
+            for i in range(self.main.text_block_list.count()):
+                item = self.main.text_block_list.item(i)
+                if item.data(QtCore.Qt.ItemDataRole.UserRole) == blk_id:
+                    self.main.text_block_list.blockSignals(True)
+                    self.main.text_block_list.setCurrentItem(item)
+                    self.main.text_block_list.blockSignals(False)
+                    break
+            
             self.main.s_text_edit.blockSignals(True)
             self.main.s_text_edit.setPlainText(self.main.curr_tblock.text)
             self.main.s_text_edit.blockSignals(False)
+        else:
+            self.main.text_block_list.clearSelection()
 
         self.main.t_text_edit.blockSignals(True)
         self.main.t_text_edit.setPlainText(text_item.toPlainText())
@@ -328,10 +340,11 @@ class TextController:
         source_lang = self.main.s_combo.currentText()
         target_lang = self.main.t_combo.currentText()
         
-        if self.main.curr_img_idx >= 0:
-            current_file = self.main.image_files[self.main.curr_img_idx]
-            self.main.image_states[current_file]['source_lang'] = source_lang
-            self.main.image_states[current_file]['target_lang'] = target_lang
+        for image_path in self.main.image_files:
+            state = self.main.image_states.get(image_path)
+            if state is not None:
+                state['source_lang'] = source_lang
+                state['target_lang'] = target_lang
 
         target_en = self.main.lang_mapping.get(target_lang, None)
         t_direction = get_layout_direction(target_en)

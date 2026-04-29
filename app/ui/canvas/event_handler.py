@@ -91,6 +91,10 @@ class EventHandler:
                 QtWidgets.QGraphicsView.mousePressEvent(self.viewer, event)
                 return
 
+            if self.viewer.current_tool not in ['brush', 'eraser'] or not self._is_on_image(scene_pos):
+                self._press_handle_pan(event)
+                return
+
         if event.button() == Qt.MiddleButton:
             self._press_handle_pan(event)
             return
@@ -136,6 +140,10 @@ class EventHandler:
         interaction_finished = False # Flag to track if we handled the event
 
         if event.button() == Qt.LeftButton:
+            if getattr(self.viewer, 'panning', False):
+                self._release_handle_pan()
+                return
+
             interaction_finished = self._release_handle_item_interaction()
 
             # If a custom drag, resize, or rotate was just finished, stop the event here
