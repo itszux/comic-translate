@@ -12,6 +12,7 @@ from app.ui.dayu_widgets.line_edit import MLineEdit
 from app.ui.dayu_widgets.loading import MLoading
 from app.ui.dayu_widgets.progress_bar import MProgressBar
 from app.ui.dayu_widgets.push_button import MPushButton
+from app.ui.dayu_widgets.check_box import MCheckBox
 from app.ui.dayu_widgets.radio_button import MRadioButton
 from app.ui.dayu_widgets.slider import MSlider
 from app.ui.dayu_widgets.text_edit import MTextEdit
@@ -63,6 +64,10 @@ class WorkspaceMixin:
         self.automatic_radio.setChecked(True)
         self.automatic_radio.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
+        self.apply_to_all_toggle = MCheckBox(self.tr("Apply to All"))
+        self.apply_to_all_toggle.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        self.apply_to_all_toggle.setToolTip(self.tr("When enabled, manual actions like Detect or Recognize apply to all pages."))
+
         self.webtoon_toggle = MToolButton()
         self.webtoon_toggle.set_dayu_svg("webtoon-toggle.svg")
         self.webtoon_toggle.huge()
@@ -86,6 +91,7 @@ class WorkspaceMixin:
         self.batch_report_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
         header_layout.addWidget(self.hbutton_group)
+        header_layout.addWidget(self.apply_to_all_toggle)
         header_layout.addWidget(self.loading)
         header_layout.addStretch()
         header_layout.addWidget(self.webtoon_toggle)

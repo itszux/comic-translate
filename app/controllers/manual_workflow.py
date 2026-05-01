@@ -33,6 +33,8 @@ class ManualWorkflowController:
         return None
 
     def _selected_page_paths(self) -> list[str]:
+        if getattr(self.main, "apply_to_all_toggle", None) and self.main.apply_to_all_toggle.isChecked():
+            return self.main.image_files.copy()
         return self.main.get_selected_page_paths()
 
     def _load_page_image(self, file_path: str):
@@ -148,17 +150,23 @@ class ManualWorkflowController:
     def block_detect(self, load_rects: bool = True) -> None:
         selected_paths = self._selected_page_paths()
         if len(selected_paths) > 1:
-            self.main.loading.setVisible(True)
+            self.main.loading.setVisible(False)
+            self.main.progress_bar.setVisible(True)
             self.main.disable_hbutton_group()
             context = self._prepare_multi_page_context(selected_paths)
             source_lang_fallback = self.main.s_combo.currentText()
+            self.main.selected_batch = selected_paths
 
             def detect_selected_pages() -> dict[str, list[TextBlock]]:
                 if self.main.pipeline.block_detection.block_detector_cache is None:
                     self.main.pipeline.block_detection.block_detector_cache = TextBlockDetector(self.main.settings_page)
                 detector = self.main.pipeline.block_detection.block_detector_cache
                 results: dict[str, list[TextBlock]] = {}
-                for file_path in selected_paths:
+                total_imgs = len(selected_paths)
+                for i, file_path in enumerate(selected_paths):
+                    if getattr(self.main, "current_worker", None) and self.main.current_worker.is_cancelled:
+                        break
+                    self.main.progress_update.emit(i, total_imgs, 1, 1, True)
                     image = self._load_page_image(file_path)
                     if image is None:
                         continue
@@ -173,6 +181,8 @@ class ManualWorkflowController:
                 return results
 
             def on_detect_ready(results: dict[str, list[TextBlock]]) -> None:
+                self.main.progress_bar.setVisible(False)
+                self.main.selected_batch = None
                 current_file = context["current_file"]
                 current_blocks: list[TextBlock] | None = None
                 for file_path, blk_list in (results or {}).items():
@@ -241,10 +251,12 @@ class ManualWorkflowController:
             return
         selected_paths = self._selected_page_paths()
         if len(selected_paths) > 1 and not single_block:
-            self.main.loading.setVisible(True)
+            self.main.loading.setVisible(False)
+            self.main.progress_bar.setVisible(True)
             self.main.disable_hbutton_group()
             context = self._prepare_multi_page_context(selected_paths)
             source_lang_fallback = self.main.s_combo.currentText()
+            self.main.selected_batch = selected_paths
 
             def ocr_selected_pages() -> dict[str, list[TextBlock]]:
                 cache_manager = self.main.pipeline.cache_manager
@@ -252,7 +264,11 @@ class ManualWorkflowController:
                 ocr_model = self.main.settings_page.get_tool_selection("ocr")
                 device = resolve_device(self.main.settings_page.is_gpu_enabled())
                 results: dict[str, list[TextBlock]] = {}
-                for file_path in selected_paths:
+                total_imgs = len(selected_paths)
+                for i, file_path in enumerate(selected_paths):
+                    if getattr(self.main, "current_worker", None) and self.main.current_worker.is_cancelled:
+                        break
+                    self.main.progress_update.emit(i, total_imgs, 1, 1, True)
                     state = self.main.image_states.get(file_path, {})
                     blk_list = state.get("blk_list", [])
                     if not blk_list:
@@ -272,6 +288,8 @@ class ManualWorkflowController:
                 return results
 
             def on_ocr_ready(results: dict[str, list[TextBlock]]) -> None:
+                self.main.progress_bar.setVisible(False)
+                self.main.selected_batch = None
                 current_file = context["current_file"]
                 for file_path, blk_list in (results or {}).items():
                     state = self.main.image_states.get(file_path)
@@ -331,7 +349,8 @@ class ManualWorkflowController:
                 if not validate_translator(self.main, target_lang):
                     return
 
-            self.main.loading.setVisible(True)
+            self.main.loading.setVisible(False)
+            self.main.progress_bar.setVisible(True)
             self.main.disable_hbutton_group()
             context = self._prepare_multi_page_context(selected_paths)
             source_lang_fallback = self.main.s_combo.currentText()
@@ -340,11 +359,16 @@ class ManualWorkflowController:
             extra_context = settings_page.get_llm_settings()["extra_context"]
             translator_key = settings_page.get_tool_selection("translator")
             upper_case = settings_page.ui.uppercase_checkbox.isChecked()
+            self.main.selected_batch = selected_paths
 
             def translate_selected_pages() -> dict[str, list[TextBlock]]:
                 cache_manager = self.main.pipeline.cache_manager
                 results: dict[str, list[TextBlock]] = {}
-                for file_path in selected_paths:
+                total_imgs = len(selected_paths)
+                for tr_i, file_path in enumerate(selected_paths):
+                    if getattr(self.main, "current_worker", None) and self.main.current_worker.is_cancelled:
+                        break
+                    self.main.progress_update.emit(tr_i, total_imgs, 1, 1, True)
                     state = self.main.image_states.get(file_path, {})
                     blk_list = state.get("blk_list", [])
                     if not blk_list:
@@ -372,6 +396,8 @@ class ManualWorkflowController:
                 return results
 
             def on_translation_ready(results: dict[str, list[TextBlock]]) -> None:
+                self.main.progress_bar.setVisible(False)
+                self.main.selected_batch = None
                 current_file = context["current_file"]
                 for file_path, blk_list in (results or {}).items():
                     state = self.main.image_states.get(file_path)
@@ -512,15 +538,20 @@ class ManualWorkflowController:
         selected_paths = self._selected_page_paths()
         if len(selected_paths) > 1:
             self.main.text_ctrl.clear_text_edits()
-            self.main.loading.setVisible(True)
+            self.main.loading.setVisible(False)
+            self.main.progress_bar.setVisible(True)
             self.main.disable_hbutton_group()
             context = self._prepare_multi_page_context(selected_paths)
+            self.main.selected_batch = selected_paths
 
             def inpaint_selected_pages() -> dict[str, list[dict]]:
                 results: dict[str, list[dict]] = {}
                 path_to_index = {p: i for i, p in enumerate(self.main.image_files)}
-
-                for file_path in selected_paths:
+                total_imgs = len(selected_paths)
+                for idx_i, file_path in enumerate(selected_paths):
+                    if getattr(self.main, "current_worker", None) and self.main.current_worker.is_cancelled:
+                        break
+                    self.main.progress_update.emit(idx_i, total_imgs, 1, 1, True)
                     state = self.main.image_states.get(file_path, {})
                     strokes = state.get("brush_strokes", [])
                     if not strokes:
@@ -552,6 +583,8 @@ class ManualWorkflowController:
                 return results
 
             def on_selected_inpaint_ready(results: dict[str, list[dict]]) -> None:
+                self.main.progress_bar.setVisible(False)
+                self.main.selected_batch = None
                 current_file = context["current_file"]
                 processed_any = False
 
@@ -631,12 +664,19 @@ class ManualWorkflowController:
 
             selected_paths = self._selected_page_paths()
             if len(selected_paths) > 1:
+                self.main.loading.setVisible(False)
+                self.main.progress_bar.setVisible(True)
                 self.main.undo_group.activeStack().beginMacro("draw_segmentation_boxes")
                 context = self._prepare_multi_page_context(selected_paths)
+                self.main.selected_batch = selected_paths
 
                 def compute_selected_bboxes() -> dict[str, list[TextBlock]]:
                     results: dict[str, list[TextBlock]] = {}
-                    for file_path in selected_paths:
+                    total_imgs = len(selected_paths)
+                    for seg_i, file_path in enumerate(selected_paths):
+                        if getattr(self.main, "current_worker", None) and self.main.current_worker.is_cancelled:
+                            break
+                        self.main.progress_update.emit(seg_i, total_imgs, 1, 1, True)
                         state = self.main.image_states.get(file_path, {})
                         blk_list = state.get("blk_list", [])
                         if not blk_list:
@@ -650,6 +690,8 @@ class ManualWorkflowController:
                     return results
 
                 def on_selected_bboxes_ready(results: dict[str, list[TextBlock]]) -> None:
+                    self.main.progress_bar.setVisible(False)
+                    self.main.selected_batch = None
                     current_file = context["current_file"]
                     for file_path, blk_list in (results or {}).items():
                         state = self.main.image_states.get(file_path)

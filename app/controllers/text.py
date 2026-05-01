@@ -781,14 +781,20 @@ class TextController:
         self.main.default_error_handler(error_tuple)
 
     def render_text(self):
-        selected_paths = self.main.get_selected_page_paths()
+        # Respect "Apply to All" toggle — if enabled, render every page, else only selected
+        if getattr(self.main, "apply_to_all_toggle", None) and self.main.apply_to_all_toggle.isChecked():
+            selected_paths = self.main.image_files.copy()
+        else:
+            selected_paths = self.main.get_selected_page_paths()
         if self.main.image_viewer.hasPhoto() and len(selected_paths) > 1:
             self.main.set_tool(None)
             if not font_selected(self.main):
                 return
             self.clear_text_edits()
-            self.main.loading.setVisible(True)
+            self.main.loading.setVisible(False)
+            self.main.progress_bar.setVisible(True)
             self.main.disable_hbutton_group()
+            self.main.selected_batch = selected_paths
 
             context = self.main.manual_workflow_ctrl._prepare_multi_page_context(selected_paths)
             render_settings = self.render_settings()
@@ -814,7 +820,11 @@ class TextController:
             def render_selected_pages() -> set[str]:
                 updated_paths: set[str] = set()
                 target_lang_fallback = self.main.t_combo.currentText()
-                for file_path in selected_paths:
+                total_imgs = len(selected_paths)
+                for rnd_i, file_path in enumerate(selected_paths):
+                    if getattr(self.main, "current_worker", None) and self.main.current_worker.is_cancelled:
+                        break
+                    self.main.progress_update.emit(rnd_i, total_imgs, 1, 1, True)
                     state = self.main.image_states.get(file_path, {})
                     blk_list = state.get("blk_list", [])
                     if not blk_list:
@@ -901,6 +911,8 @@ class TextController:
                 return updated_paths
 
             def on_selected_render_ready(updated_paths: set[str]) -> None:
+                self.main.progress_bar.setVisible(False)
+                self.main.selected_batch = None
                 if not updated_paths:
                     return
 

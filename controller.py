@@ -572,6 +572,10 @@ class ComicTranslate(ComicTranslateUI):
 
     def on_manual_finished(self):
         self.loading.setVisible(False)
+        if self.progress_bar.isVisible():
+            self.progress_bar.setVisible(False)
+            self.progress_bar.setValue(0)
+            self.progress_bar.setFormat("%p%")
         self.enable_hbutton_group()
 
     def run_threaded(self, callback: Callable, result_callback: Callable=None,
@@ -868,10 +872,14 @@ class ComicTranslate(ComicTranslateUI):
         else:
             # Archiving progress
             archive_index = index - total_images
-            task_progress = image_processing_weight + (archive_index / total_archives) * archiving_weight
-            step_progress = (step / total_steps) * (1 / total_archives) * archiving_weight
+            if total_archives > 0:
+                task_progress = image_processing_weight + (archive_index / total_archives) * archiving_weight
+                step_progress = (step / total_steps) * (1 / total_archives) * archiving_weight
+            else:
+                task_progress = image_processing_weight
+                step_progress = 0
 
-        progress = (task_progress + step_progress) * 100 
+        progress = (task_progress + step_progress) * 100
         self.progress_bar.setValue(int(progress))
 
     def on_download_event(self, status: str, name: str):
