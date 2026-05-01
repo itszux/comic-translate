@@ -22,6 +22,7 @@ from modules.utils.file_handler import FileHandler
 from modules.utils.pipeline_config import validate_settings
 from modules.utils.download import mandatory_models, set_download_callback, ensure_mandatory_models
 from pipeline.main_pipeline import ComicTranslatePipeline
+from app.ui.manual_translate_dialog import ManualTranslateDialog
 
 from app.controllers.image import ImageStateController
 from app.controllers.rect_item import RectItemController
@@ -199,6 +200,7 @@ class ComicTranslate(ComicTranslateUI):
         self.translate_button.clicked.connect(self.start_batch_process)
         self.cancel_button.clicked.connect(self.cancel_current_task)
         self.batch_report_button.clicked.connect(self.show_latest_batch_report)
+        self.manual_translate_button.clicked.connect(self.open_manual_translate_dialog)
         self.set_all_button.clicked.connect(self.text_ctrl.set_src_trg_all)
         self.clear_rectangles_button.clicked.connect(self.image_viewer.clear_rectangles)
         self.clear_brush_strokes_button.clicked.connect(self.image_viewer.clear_brush_strokes)
@@ -703,6 +705,14 @@ class ComicTranslate(ComicTranslateUI):
             self.run_threaded(self.pipeline.webtoon_batch_process, None, self.default_error_handler, self.on_batch_process_finished)
         else:
             self.run_threaded(self.pipeline.batch_process, None, self.default_error_handler, self.on_batch_process_finished)
+
+    def open_manual_translate_dialog(self):
+        if not self.image_files:
+            Messages.warning(self.tr("No Project"), self.tr("Please load a project or images first."))
+            return
+        
+        dialog = ManualTranslateDialog(self, self)
+        dialog.exec()
 
     def batch_translate_selected(self, selected_file_names: list[str]):
         try:
