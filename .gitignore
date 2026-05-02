@@ -21,3 +21,8 @@ uv.lock
 # Test files
 test_*.py
 demo_*.py
+
+# Other
+todo.txt
+run.bat
+run.vbs

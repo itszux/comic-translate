@@ -40,6 +40,7 @@ def get_smart_text_color(detected_rgb: tuple, setting_color: QColor) -> QColor:
     return setting_color
 
 def generate_mask(img: np.ndarray, blk_list: list[TextBlock], default_padding: int = 5) -> np.ndarray:
+
     """
     Generate a mask by fitting a merged shape around each block's inpaint bboxes,
     then dilating that shape according to padding logic.

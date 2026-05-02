@@ -1,7 +1,7 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtCore import QEvent, QLineF, Qt, QPointF
-from PySide6.QtGui import QTransform, QEventPoint
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsPathItem
+from PySide6.QtGui import QTransform, QEventPoint, QColor, QPen
+from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsPathItem, QGraphicsEllipseItem
 
 from .text_item import TextBlockItem, TextBlockState
 from .rectangle import MoveableRectItem, RectState
@@ -14,6 +14,8 @@ class EventHandler:
         self.viewer = viewer
         self.dragged_item = None
         self.last_scene_pos = None
+        # Scene overlay circle for brush/eraser cursor preview
+        self._cursor_circle: QGraphicsEllipseItem | None = None
     
     # Main Event Handlers
 
@@ -130,6 +132,10 @@ class EventHandler:
         if self.viewer.current_tool in ['brush', 'eraser'] and self.viewer.drawing_manager.current_path:
             if self._is_on_image(scene_pos):
                 self.viewer.drawing_manager.continue_stroke(scene_pos)
+        
+        # Update brush/eraser cursor circle overlay
+        if self.viewer.current_tool in ['brush', 'eraser']:
+            self._update_cursor_circle(scene_pos)
         
         if self.viewer.current_tool == 'box':
             self._move_handle_box_resize(scene_pos)
@@ -350,12 +356,22 @@ class EventHandler:
             return False
 
         sel_item = self.dragged_item
+        mods = event.modifiers()
+        shift_held = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+        ctrl_held = bool(mods & Qt.KeyboardModifier.ControlModifier)
 
         # Get positions needed by the item's move method
         local_pos = sel_item.mapFromScene(scene_pos)
-        # Use stored last position instead of event.lastScenePos() which doesn't exist
         last_scene_pos = self.last_scene_pos if self.last_scene_pos else scene_pos
         last_local_pos = sel_item.mapFromScene(last_scene_pos)
+
+        # Constrain movement: Shift = vertical only, Ctrl = horizontal only
+        if shift_held and not ctrl_held:
+            constrained = QPointF(last_scene_pos.x(), scene_pos.y())
+            local_pos = sel_item.mapFromScene(constrained)
+        elif ctrl_held and not shift_held:
+            constrained = QPointF(scene_pos.x(), last_scene_pos.y())
+            local_pos = sel_item.mapFromScene(constrained)
 
         # Call the appropriate move method
         sel_item.move_item(local_pos, last_local_pos)
@@ -375,7 +391,9 @@ class EventHandler:
 
         # Handle active dragging operations first
         if sel_item.resizing:
-            sel_item.resize_item(scene_pos)
+            from PySide6.QtWidgets import QApplication
+            shift_held = bool(QApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier)
+            sel_item.resize_item(scene_pos, keep_aspect_ratio=shift_held)
             return True
         
         if sel_item.rotating and sel_item.center_scene_pos:
@@ -403,8 +421,71 @@ class EventHandler:
             self.viewer.viewport().setCursor(Qt.CursorShape.SizeAllCursor)
             return True
 
+        self._remove_cursor_circle()
         self.viewer.viewport().setCursor(Qt.CursorShape.ArrowCursor)
         return False
+
+    # ── Brush/eraser cursor circle overlay ──────────────────────────
+
+    def _update_cursor_circle(self, scene_pos: QPointF):
+        """Draw a circle overlay in scene coords showing the tool radius."""
+        try:
+            scene = self.viewer._scene
+            if scene is None:
+                return
+        except RuntimeError:
+            self._cursor_circle = None
+            return
+
+        if self.viewer.current_tool == 'brush':
+            # QPen width is the diameter in scene coords, so radius = brush_size / 2
+            radius = self.viewer.drawing_manager.brush_size / 2
+            color = QColor(255, 60, 60, 220)
+        elif self.viewer.current_tool == 'eraser':
+            # addEllipse(pos, rx, ry) treats the value as radius, so use eraser_size directly
+            radius = self.viewer.drawing_manager.eraser_size
+            color = QColor(200, 200, 200, 220)
+        else:
+            self._remove_cursor_circle()
+            return
+
+        # brush_size is in scene coordinates — the pen draws at that thickness in scene space.
+        # The circle should have the same radius in scene space so it matches the stroke exactly.
+        scene_radius = radius  # no scale division needed
+
+        # Pen width: 1 screen pixel regardless of zoom
+        transform = self.viewer.transform()
+        scale = transform.m11() if transform.m11() > 0 else 1.0
+        pen_width = 1.5 / scale
+
+        try:
+            if self._cursor_circle is None or self._cursor_circle.scene() is None:
+                self._cursor_circle = scene.addEllipse(
+                    0, 0, 1, 1,
+                    QPen(color, pen_width),
+                )
+                self._cursor_circle.setZValue(100)
+
+            pen = QPen(color, pen_width)
+            self._cursor_circle.setPen(pen)
+            self._cursor_circle.setBrush(QtGui.QBrush(Qt.BrushStyle.NoBrush))
+            self._cursor_circle.setRect(
+                scene_pos.x() - scene_radius,
+                scene_pos.y() - scene_radius,
+                scene_radius * 2,
+                scene_radius * 2,
+            )
+            self._cursor_circle.setVisible(True)
+        except RuntimeError:
+            self._cursor_circle = None
+
+    def _remove_cursor_circle(self):
+        if self._cursor_circle is not None:
+            try:
+                self._cursor_circle.setVisible(False)
+            except RuntimeError:
+                pass
+            self._cursor_circle = None
 
     def _move_handle_pan(self, event):
         delta = event.position() - self.viewer.pan_start_pos

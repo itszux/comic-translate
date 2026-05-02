@@ -149,7 +149,7 @@ class MoveableRectItem(QGraphicsRectItem):
         self.setRotation(new_rotation)
         self.last_rotation_angle = current_angle
 
-    def resize_item(self, scene_pos: QPointF):
+    def resize_item(self, scene_pos: QPointF, keep_aspect_ratio: bool = False):
         if not self.resize_start or not self.resize_handle:
             return
 
@@ -185,6 +185,25 @@ class MoveableRectItem(QGraphicsRectItem):
             if 'top' in self.resize_handle: new_rect.setTop(new_rect.bottom() - min_size)
             else: new_rect.setBottom(new_rect.top() + min_size)
 
+        # Aspect-ratio lock (Shift held)
+        if keep_aspect_ratio and rect.width() > 0 and rect.height() > 0:
+            aspect = rect.width() / rect.height()
+            # Decide which dimension is the "driver"
+            dw = abs(new_rect.width() - rect.width())
+            dh = abs(new_rect.height() - rect.height())
+            if dw >= dh:
+                target_h = new_rect.width() / aspect
+                if 'top' in self.resize_handle:
+                    new_rect.setTop(new_rect.bottom() - target_h)
+                else:
+                    new_rect.setBottom(new_rect.top() + target_h)
+            else:
+                target_w = new_rect.height() * aspect
+                if 'left' in self.resize_handle:
+                    new_rect.setLeft(new_rect.right() - target_w)
+                else:
+                    new_rect.setRight(new_rect.left() + target_w)
+
         # Convert the new rectangle to scene coordinates to check bounds
         prospective_scene_rect = self.mapRectToScene(new_rect)
         
@@ -209,3 +228,4 @@ class MoveableRectItem(QGraphicsRectItem):
         self.setPos(new_pos)
         self.setRect(0, 0, new_rect.width(), new_rect.height())
         self.resize_start = scene_pos
+

@@ -195,6 +195,11 @@ class ImageViewer(QGraphicsView):
     def mouseReleaseEvent(self, event):
         self.event_handler.handle_mouse_release(event)
 
+    def leaveEvent(self, event):
+        """Hide the brush/eraser cursor circle when the mouse leaves the viewport."""
+        self.event_handler._remove_cursor_circle()
+        super().leaveEvent(event)
+
     def wheelEvent(self, event):
         self.event_handler.handle_wheel(event)
 
@@ -202,11 +207,43 @@ class ImageViewer(QGraphicsView):
         return self.event_handler.handle_viewport_event(event)
         
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
+        key = event.key()
+        if key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             self.delete_requested.emit()
             event.accept()
-        else:
-            super().keyPressEvent(event)
+            return
+
+        # Arrow key movement for selected item (1 px; 10 px with Shift)
+        arrow_map = {
+            Qt.Key.Key_Left:  QPointF(-1, 0),
+            Qt.Key.Key_Right: QPointF(1, 0),
+            Qt.Key.Key_Up:    QPointF(0, -1),
+            Qt.Key.Key_Down:  QPointF(0, 1),
+        }
+        if key in arrow_map:
+            blk_item, rect_item = self.sel_rot_item()
+            sel_item = blk_item or rect_item
+            if sel_item and not getattr(sel_item, 'editing_mode', False):
+                step = 10 if bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier) else 1
+                # Scale from screen pixels to scene pixels
+                scale = self.transform().m11() or 1.0
+                scene_step = step / scale
+                delta = arrow_map[key] * scene_step
+                # Emit undo state before move
+                from .text_item import TextBlockItem, TextBlockState
+                from .rectangle import MoveableRectItem, RectState
+                if isinstance(sel_item, TextBlockItem):
+                    old_state = TextBlockState.from_item(sel_item)
+                    sel_item.setPos(sel_item.pos() + delta)
+                    sel_item.change_undo.emit(old_state, TextBlockState.from_item(sel_item))
+                elif isinstance(sel_item, MoveableRectItem):
+                    old_state = RectState.from_item(sel_item)
+                    sel_item.setPos(sel_item.pos() + delta)
+                    sel_item.signals.change_undo.emit(old_state, RectState.from_item(sel_item))
+                event.accept()
+                return
+
+        super().keyPressEvent(event)
 
     def set_br_er_size(self, size, scaled_size):
         if self.current_tool == 'brush':
@@ -339,7 +376,10 @@ class ImageViewer(QGraphicsView):
         self.setPhoto(pixmap, fit=fit)
 
     def clear_scene(self):
-        self.webtoon_manager.clear() 
+        self.webtoon_manager.clear()
+        # Null out the cursor circle reference before clearing the scene.
+        # _scene.clear() destroys all C++ items; accessing a stale reference crashes.
+        self.event_handler._cursor_circle = None
         self._scene.clear()
         self.rectangles.clear()
         self.text_items.clear()
